@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Wall Calendar</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- React & ReactDOM via CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  
+  <!-- Babel via CDN to compile JSX in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Styling */
+    :root {
+      --primary-color: #2b8cbe;
+      --primary-light: rgba(43, 140, 190, 0.15);
+      --text-main: #333;
+      --text-muted: #999;
+      --bg-main: #f5f7fa;
+      --white: #ffffff;
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      box-sizing: border-box;
+    }
+
+    * { box-sizing: inherit; }
+
+    .calendar-container {
+      background: var(--white);
+      width: 100%;
+      max-width: 800px;
+      border-radius: 8px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Spiral binding visual */
+    .spiral-binding {
+      height: 20px;
+      background: linear-gradient(to right, 
+        transparent 0%, transparent 10%, 
+        #333 10%, #333 12%, 
+        transparent 12%, transparent 20%);
+      background-size: 24px 100%;
+      position: absolute;
+      top: -10px;
+      left: 0;
+      right: 0;
+      z-index: 10;
+    }
+    
+    .hero-section {
+      height: 350px;
+      position: relative;
+      background-image: url('https://images.unsplash.com/photo-1522345479008-8e6fa3e804f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80');
+      background-size: cover;
+      background-position: center;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 150px;
+      background: var(--primary-color);
+      clip-path: polygon(0 40%, 30% 100%, 70% 30%, 100% 0, 100% 100%, 0 100%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 2rem;
+      color: white;
+      text-align: right;
+    }
+    
+    .hero-overlay-2 {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 150px;
+      background: white;
+      clip-path: polygon(0 60%, 40% 100%, 60% 70%, 100% 30%, 100% 100%, 0 100%);
+    }
+
+    .month-title {
+      position: absolute;
+      bottom: 30px;
+      right: 40px;
+      color: var(--primary-color);
+      text-align: right;
+      z-index: 2;
+    }
+    
+    .month-title h2 { margin: 0; font-size: 2.5rem; font-weight: 800; text-transform: uppercase; line-height: 1; }
+    .month-title p { margin: 0; font-size: 1.5rem; font-weight: 400; color:var(--text-main); }
+
+    .bottom-section {
+      display: flex;
+      padding: 2rem 3rem;
+      gap: 3rem;
+      background: white;
+      z-index: 3;
+    }
+
+    /* Notes section */
+    .notes-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notes-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 1rem;
+    }
+
+    .notes-input {
+      flex: 1;
+      width: 100%;
+      border: none;
+      resize: none;
+      line-height: 2rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      color: var(--text-main);
+      background: transparent;
+      padding: 0;
+      background-image: linear-gradient(transparent, transparent calc(2rem - 1px), #e0e0e0 calc(2rem - 1px), #e0e0e0 2rem);
+      background-size: 100% 2rem;
+    }
+    
+    .notes-input:focus {
+      outline: none;
+    }
+
+    /* Calendar Grid */
+    .calendar-section {
+      flex: 2;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .controls button {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: var(--primary-color);
+      transition: opacity 0.2s;
+    }
+    .controls button:hover { opacity: 0.7; }
+    
+    .days-row {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .day-name {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    
+    .day-name.weekend {
+      color: var(--primary-color);
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .calendar-cell {
+      aspect-ratio: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-main);
+      cursor: pointer;
+      border-radius: 50%;
+      margin: 2px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .calendar-cell.empty {
+      cursor: default;
+      background: none !important;
+    }
+
+    .calendar-cell.muted {
+      color: var(--text-muted);
+    }
+
+    .calendar-cell:hover:not(.empty) {
+      background-color: var(--primary-light);
+    }
+
+    /* Range styles */
+    .calendar-cell.selected {
+      background-color: var(--primary-color);
+      color: var(--white);
+      font-weight: 700;
+      border-radius: 50%;
+      z-index: 2;
+      box-shadow: 0 4px 10px rgba(43, 140, 190, 0.4);
+    }
+
+    .calendar-cell.in-range {
+      background-color: var(--primary-light);
+      border-radius: 0;
+      margin: 2px 0;
+    }
+
+    .calendar-cell.range-start {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      margin-right: 0;
+    }
+
+    .calendar-cell.range-end {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      margin-left: 0;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .bottom-section {
+        flex-direction: column-reverse;
+        padding: 1.5rem;
+        gap: 2rem;
+      }
+      .notes-input {
+        min-height: 150px;
+      }
+      .hero-section {
+        height: 250px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+    const CalendarApp = () => {
+      const [currentDate, setCurrentDate] = useState(new Date());
+      const [startDate, setStartDate] = useState(null);
+      const [endDate, setEndDate] = useState(null);
+      const [hoverDate, setHoverDate] = useState(null);
+      const [notes, setNotes] = useState('');
+
+      // Load notes on mount
+      useEffect(() => {
+        const savedNotes = localStorage.getItem('calendar_notes');
+        if (savedNotes) setNotes(savedNotes);
+      }, []);
+
+      // Save notes
+      const handleNotesChange = (e) => {
+        setNotes(e.target.value);
+        localStorage.setItem('calendar_notes', e.target.value);
+      };
+
+      const changeMonth = (offset) => {
+        setCurrentDate(prev => {
+          const newDate = new Date(prev);
+          newDate.setMonth(prev.getMonth() + offset);
+          return newDate;
+        });
+      };
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      // Get days for the grid
+      const calendarDays = useMemo(() => {
+        const days = [];
+        
+        // Find first day of current month (0-6, where 0=Sun, 1=Mon)
+        const firstDayOfMonth = new Date(year, month, 1);
+        let startDay = firstDayOfMonth.getDay();
+        // Adjust to make Monday first day (0=Mon, 6=Sun)
+        startDay = startDay === 0 ? 6 : startDay - 1;
+
+        // Previous month days
+        const prevMonth = new Date(year, month, 0);
+        const prevMonthDays = prevMonth.getDate();
+        for (let i = startDay - 1; i >= 0; i--) {
+          days.push({
+            date: new Date(year, month - 1, prevMonthDays - i),
+            isCurrentMonth: false
+          });
+        }
+
+        // Current month days
+        const currentMonthDays = new Date(year, month + 1, 0).getDate();
+        for (let i = 1; i <= currentMonthDays; i++) {
+          days.push({
+            date: new Date(year, month, i),
+            isCurrentMonth: true
+          });
+        }
+
+        // Next month days to complete the grid (usually 42 cells total for 6 rows)
+        const remainingCells = 42 - days.length;
+        for (let i = 1; i <= remainingCells; i++) {
+          days.push({
+            date: new Date(year, month + 1, i),
+            isCurrentMonth: false
+          });
+        }
+
+        return days;
+      }, [year, month]);
+
+      const handleDayClick = (date) => {
+        // Reset if both selected
+        if (startDate && endDate) {
+          setStartDate(date);
+          setEndDate(null);
+          return;
+        }
+        
+        // If no start date, or matching start date, set start date
+        if (!startDate) {
+          setStartDate(date);
+        } else {
+          // If clicked date is before start date, make it the new start date
+          if (date < startDate) {
+            setStartDate(date);
+          } else {
+            setEndDate(date);
+          }
+        }
+      };
+
+      const getDayClass = (date, isCurrentMonth) => {
+        let classes = ['calendar-cell'];
+        if (!isCurrentMonth) classes.push('muted');
+
+        const time = date.getTime();
+        const startTime = startDate?.getTime();
+        const endTime = endDate?.getTime();
+        const hoverTime = hoverDate?.getTime();
+
+        if (startTime === time) {
+          classes.push('selected');
+          if (endTime || (hoverTime && hoverTime > startTime)) classes.push('range-start');
+        }
+        
+        if (endTime === time) {
+          classes.push('selected', 'range-end');
+        }
+
+        if (startTime && !endTime && hoverTime && time > startTime && time <= hoverTime) {
+          if (time !== hoverTime) classes.push('in-range');
+          if (time === hoverTime) classes.push('selected', 'range-end');
+        }
+
+        if (startTime && endTime && time > startTime && time < endTime) {
+          classes.push('in-range');
+        }
+
+        return classes.join(' ');
+      };
+
+      return (
+        <div className="calendar-container">
+          <div className="spiral-binding"></div>
+          
+          <div className="hero-section">
+            <div className="hero-overlay"></div>
+            <div className="hero-overlay-2"></div>
+            <div className="month-title">
+              <p>{year}</p>
+              <h2>{MONTHS[month]}</h2>
+            </div>
+          </div>
+          
+          <div className="bottom-section">
+            <div className="notes-section">
+              <div className="notes-title">Notes</div>
+              <textarea 
+                className="notes-input" 
+                value={notes}
+                onChange={handleNotesChange}
+                placeholder="Write your notes here..."
+                spellCheck="false"
+              ></textarea>
+            </div>
+            
+            <div className="calendar-section">
+              <div className="controls">
+                <button onClick={() => changeMonth(-1)}>&#8592;</button>
+                <div style={{fontWeight: 600}}>{MONTHS[month]} {year}</div>
+                <button onClick={() => changeMonth(1)}>&#8594;</button>
+              </div>
+              
+              <div className="days-row">
+                {DAYS.map((day, idx) => (
+                  <div key={day} className={`day-name ${idx >= 5 ? 'weekend' : ''}`}>{day}</div>
+                ))}
+              </div>
+              
+              <div className="calendar-grid">
+                {calendarDays.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    className={getDayClass(item.date, item.isCurrentMonth)}
+                    onClick={() => handleDayClick(item.date)}
+                    onMouseEnter={() => setHoverDate(item.date)}
+                    onMouseLeave={() => setHoverDate(null)}
+                  >
+                    {item.date.getDate()}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<CalendarApp />);
+  </script>
+</body>
+</html>
